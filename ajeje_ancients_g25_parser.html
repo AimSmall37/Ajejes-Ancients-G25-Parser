@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ajeje's Ancients — G25 Sample Collection Parser</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --soil-0:#141210;
+  --soil-1:#1c1815;
+  --soil-2:#251f1a;
+  --soil-3:#332b23;
+  --bone:#ece3d2;
+  --bone-dim:#a89a86;
+  --amber:#d3963f;
+  --amber-bright:#e8b264;
+  --patina:#5f9184;
+  --rust:#a8543a;
+  --line:#3a3128;
+  --danger:#c0604a;
+  --radius:3px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--soil-0);
+  color:var(--bone);
+  font-family:'IBM Plex Sans', sans-serif;
+  font-size:14px;
+  line-height:1.5;
+  min-height:100vh;
+}
+::selection{background:var(--amber); color:var(--soil-0);}
+
+h1,h2,h3{font-family:'Fraunces', serif; font-weight:600; margin:0;}
+
+.wrap{max-width:1400px; margin:0 auto; padding:28px 24px 60px;}
+
+/* ---------- Header ---------- */
+header{
+  display:flex; justify-content:space-between; align-items:flex-end;
+  gap:24px; flex-wrap:wrap;
+  border-bottom:1px solid var(--line);
+  padding-bottom:18px; margin-bottom:22px;
+}
+header .eyebrow{
+  font-family:'IBM Plex Mono', monospace;
+  font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--amber); margin-bottom:6px;
+}
+header h1{font-size:30px; color:var(--bone); letter-spacing:.01em;}
+header p.sub{color:var(--bone-dim); margin-top:6px; font-size:13.5px; max-width:56ch;}
+.stat-block{
+  display:flex; gap:22px; font-family:'IBM Plex Mono', monospace;
+}
+.stat-block .stat{text-align:right;}
+.stat-block .num{font-size:22px; color:var(--amber-bright); display:block; font-weight:600;}
+.stat-block .label{font-size:10px; color:var(--bone-dim); text-transform:uppercase; letter-spacing:.1em;}
+
+/* ---------- Credits strip ---------- */
+.credits-strip{
+  display:flex; flex-wrap:wrap; gap:6px 26px; justify-content:space-between;
+  font-size:11.5px; color:var(--bone-dim); padding:10px 2px 22px;
+  font-family:'IBM Plex Mono', monospace; line-height:1.6;
+}
+.credits-strip span{flex:1 1 260px;}
+.credits-strip a{color:var(--amber-bright); text-decoration:none; border-bottom:1px dotted var(--amber-bright);}
+.credits-strip a:hover{color:var(--amber);}
+
+/* ---------- Core sample strip (era legend / filter) ---------- */
+.core-section{margin-bottom:24px;}
+.core-section .core-title{
+  font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--bone-dim);
+  text-transform:uppercase; letter-spacing:.1em; margin-bottom:8px;
+  display:flex; justify-content:space-between; align-items:center;
+}
+.core-strip{
+  display:flex; width:100%; border-radius:var(--radius); overflow:hidden;
+  border:1px solid var(--line); height:54px;
+}
+.stratum{
+  flex:1; display:flex; align-items:center; justify-content:center;
+  cursor:pointer; position:relative; border-right:1px solid rgba(0,0,0,.25);
+  transition:flex-grow .15s ease, filter .15s ease;
+  min-width:0;
+}
+.stratum:last-child{border-right:none;}
+.stratum span{
+  font-family:'IBM Plex Mono', monospace; font-size:10.5px; color:rgba(0,0,0,.72);
+  writing-mode:horizontal-tb; padding:0 4px; text-align:center;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  font-weight:600; letter-spacing:.01em;
+}
+.stratum:hover{filter:brightness(1.14); flex-grow:1.6;}
+.stratum.active{outline:2px solid var(--bone); outline-offset:-2px;}
+.stratum.dimmed{opacity:.28;}
+.core-hint{font-size:11.5px; color:var(--bone-dim); margin-top:6px;}
+
+/* ---------- Panels ---------- */
+.panel{
+  background:var(--soil-1); border:1px solid var(--line); border-radius:var(--radius);
+  padding:18px 20px; margin-bottom:20px;
+}
+.panel h2{font-size:15px; color:var(--bone); margin-bottom:12px; display:flex; align-items:center; gap:8px;}
+.panel h2 .n{color:var(--amber); font-family:'IBM Plex Mono',monospace; font-size:12px;}
+
+/* ---------- Input controls ---------- */
+.input-row{display:flex; gap:14px; flex-wrap:wrap; align-items:center;}
+.btn{
+  background:var(--soil-2); color:var(--bone); border:1px solid var(--line);
+  padding:9px 16px; border-radius:var(--radius); font-family:'IBM Plex Sans', sans-serif;
+  font-size:13px; cursor:pointer; transition:all .12s ease; font-weight:500;
+}
+.btn:hover{border-color:var(--amber); color:var(--amber-bright);}
+.btn.primary{background:var(--amber); color:var(--soil-0); border-color:var(--amber); font-weight:600;}
+.btn.primary:hover{background:var(--amber-bright); color:var(--soil-0);}
+.btn.ghost{background:transparent;}
+.btn:disabled{opacity:.4; cursor:not-allowed;}
+.btn:disabled:hover{border-color:var(--line); color:var(--bone);}
+input[type=file]{display:none;}
+.file-label{display:inline-block;}
+
+textarea#pasteArea{
+  width:100%; min-height:90px; background:var(--soil-0); color:var(--bone);
+  border:1px solid var(--line); border-radius:var(--radius); padding:10px 12px;
+  font-family:'IBM Plex Mono', monospace; font-size:12px; resize:vertical; margin-top:10px;
+}
+.status-msg{font-size:12.5px; margin-top:10px; color:var(--bone-dim); font-family:'IBM Plex Mono', monospace;}
+.status-msg.err{color:var(--danger);}
+.status-msg.ok{color:var(--patina);}
+
+/* ---------- Filters ---------- */
+.filters-grid{
+  display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:14px;
+}
+.field label{
+  display:block; font-size:11px; text-transform:uppercase; letter-spacing:.08em;
+  color:var(--bone-dim); margin-bottom:6px; font-family:'IBM Plex Mono', monospace;
+}
+.field input[type=text], .field input[type=number], .field select{
+  width:100%; background:var(--soil-0); color:var(--bone); border:1px solid var(--line);
+  border-radius:var(--radius); padding:8px 10px; font-family:'IBM Plex Sans', sans-serif; font-size:13px;
+}
+.field input:focus, .field select:focus, textarea:focus{outline:1px solid var(--amber); border-color:var(--amber);}
+.range-pair{display:flex; gap:8px; align-items:center;}
+.range-pair input{width:100%;}
+.filters-footer{
+  display:flex; justify-content:space-between; align-items:center; margin-top:16px;
+  flex-wrap:wrap; gap:10px;
+}
+
+/* ---------- Table ---------- */
+.table-scroll{overflow-x:auto; border:1px solid var(--line); border-radius:var(--radius);}
+table{border-collapse:collapse; width:100%; font-size:12.5px; font-family:'IBM Plex Mono', monospace;}
+thead th{
+  position:sticky; top:0; background:var(--soil-2); color:var(--amber-bright);
+  text-align:left; padding:9px 12px; font-weight:600; white-space:nowrap; cursor:pointer;
+  border-bottom:1px solid var(--line); user-select:none;
+}
+thead th:hover{color:var(--amber);}
+thead th .arrow{opacity:.5; font-size:10px; margin-left:3px;}
+tbody td{padding:7px 12px; white-space:nowrap; border-bottom:1px solid rgba(58,49,40,.5); color:var(--bone);}
+tbody tr:hover{background:var(--soil-2);}
+tbody tr:nth-child(even){background:rgba(255,255,255,.012);}
+.era-pill{
+  display:inline-block; padding:2px 8px; border-radius:10px; font-size:10.5px;
+  font-weight:600; color:var(--soil-0); white-space:nowrap;
+}
+.pc-cell{color:var(--bone-dim);}
+.empty-state{padding:40px 20px; text-align:center; color:var(--bone-dim);}
+.empty-state .big{font-family:'Fraunces',serif; font-size:20px; color:var(--bone); margin-bottom:6px;}
+
+/* ---------- Pagination / export ---------- */
+.table-footer{
+  display:flex; justify-content:space-between; align-items:center; margin-top:14px;
+  flex-wrap:wrap; gap:12px;
+}
+.page-controls{display:flex; align-items:center; gap:8px; font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--bone-dim);}
+.page-controls select{background:var(--soil-0); color:var(--bone); border:1px solid var(--line); border-radius:var(--radius); padding:5px 8px; font-family:'IBM Plex Mono',monospace; font-size:12px;}
+.export-row{display:flex; gap:10px; flex-wrap:wrap;}
+
+.avg-subhead{
+  font-family:'Fraunces', serif; font-weight:600; font-size:15px; color:var(--amber-bright);
+  margin:22px 0 10px; padding-top:16px; border-top:1px solid var(--line);
+}
+.avg-subhead:first-of-type{margin-top:0; padding-top:0; border-top:none;}
+table.wide-two-col{width:100%; table-layout:fixed;}
+table.wide-two-col th:first-child, table.wide-two-col td:first-child{width:80%; white-space:normal; word-break:break-word;}
+table.wide-two-col th:last-child, table.wide-two-col td:last-child{width:20%; text-align:right;}
+
+footer.credits{margin-top:30px; color:var(--bone-dim); font-size:11.5px; text-align:center; font-family:'IBM Plex Mono', monospace;}
+
+@media (max-width:720px){
+  header{flex-direction:column; align-items:flex-start;}
+  .stat-block{gap:14px;}
+  .stratum span{font-size:0;}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <div class="eyebrow">Global25 · PCA Coordinate Toolkit</div>
+      <h1>Ajeje's Ancients — G25 Sample Collection Parser</h1>
+      <p class="sub">Loads raw Global25 rows (<span style="color:var(--amber-bright)">Name, PC1–PC25</span>), splits the encoded name into Population, Sample, Age and Coverage fields, sorts every individual into an archaeological stratum by date, and can average coordinates by population.</p>
+    </div>
+    <div class="stat-block">
+      <div class="stat"><span class="num" id="statTotal">0</span><span class="label">Loaded</span></div>
+      <div class="stat"><span class="num" id="statFiltered">0</span><span class="label">Filtered</span></div>
+      <div class="stat"><span class="num" id="statDated">0</span><span class="label">Dated</span></div>
+    </div>
+  </header>
+
+  <div class="credits-strip">
+    <span><strong>Ajeje's Ancients</strong> is a Global25 sample collection created and maintained for years by <a href="https://genarchivist.net/member.php?action=profile&amp;uid=282" target="_blank" rel="noopener">Ajeje Brazorf</a>, now maintained by <a href="https://genarchivist.net/member.php?action=profile&amp;uid=80" target="_blank" rel="noopener">ilabv</a>.</span>
+    <span>Global25 (G25) coordinates created by Davidski — background on the <a href="https://eurogenes.blogspot.com/2025/02/g25-available-again.html" target="_blank" rel="noopener">Eurogenes blog</a>.</span>
+    <span>This parser and the original R scripts it's based on were written by <strong>AimSmall</strong>.</span>
+  </div>
+
+  <div class="core-section">
+    <div class="core-title">
+      <span>Stratigraphy — click a layer to filter by era (multi-select)</span>
+      <span id="eraClearHint" style="cursor:pointer; color:var(--amber); display:none;" onclick="clearEraFilter()">clear layers ✕</span>
+    </div>
+    <div class="core-strip" id="coreStrip"></div>
+    <div class="core-hint">Layers are ordered oldest (left) → most recent (right), sized by number of matching samples currently loaded.</div>
+  </div>
+
+  <div class="panel">
+    <h2>1 · Load data</h2>
+    <div class="input-row">
+      <a class="btn" style="text-decoration:none;" href="https://www.dropbox.com/scl/fi/jcg8qw7w8h37acm6z7v0m/G25-Ancients.txt?rlkey=bu28pasrwlsd9ajca14g2dxfk&st=x0qymb2n&e=1&dl=0" target="_blank" rel="noopener">Get the collection from Dropbox ↗</a>
+      <label class="file-label btn primary" for="fileInput">Upload .txt / .csv</label>
+      <input type="file" id="fileInput" accept=".txt,.csv">
+      <button class="btn" onclick="loadDemo()">Load demo sample (10 rows)</button>
+      <button class="btn ghost" onclick="toggleClipboardArea()">Paste raw text instead</button>
+      <button class="btn ghost" onclick="resetAll()">Clear</button>
+    </div>
+    <div class="core-hint" style="margin-top:8px;">The Dropbox link opens Ajeje's Ancients G25 file in a new tab — download it, then upload it above (or open it and copy/paste its contents).</div>
+    <textarea id="pasteArea" placeholder="Paste raw, headerless Global25 rows here — Name,PC1,PC2,...,PC25 — then click Parse." style="display:none;"></textarea>
+    <div class="input-row" id="pasteBtnRow" style="display:none; margin-top:8px;">
+      <button class="btn primary" onclick="parsePastedText()">Parse pasted text</button>
+    </div>
+    <div class="status-msg" id="statusMsg">No data loaded yet. Expected format per row: <em>Population:Sample__BC_1234__Cov_55.00%,0.01,-0.02,…</em> (25 PC values, no header).</div>
+  </div>
+
+  <div class="panel">
+    <h2>2 · Filter <span class="n" id="filterCount"></span></h2>
+    <div class="filters-grid">
+      <div class="field">
+        <label>Search population / sample</label>
+        <input type="text" id="fSearch" placeholder="e.g. Yamnaya, Denisova…" oninput="applyFilters()">
+      </div>
+      <div class="field">
+        <label>Era</label>
+        <select id="fEra" onchange="onEraDropdown()">
+          <option value="">All eras</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Age period</label>
+        <select id="fPeriod" onchange="applyFilters()">
+          <option value="">BC + AD (all)</option>
+          <option value="BC">BC only</option>
+          <option value="AD">AD only</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Min coverage %</label>
+        <input type="number" id="fCovMin" placeholder="0" min="0" max="100" oninput="applyFilters()">
+      </div>
+      <div class="field">
+        <label>Date from (signed year)</label>
+        <input type="number" id="fYearFrom" placeholder="e.g. -10000" oninput="applyFilters()">
+      </div>
+      <div class="field">
+        <label>Date to (signed year)</label>
+        <input type="number" id="fYearTo" placeholder="e.g. 1500" oninput="applyFilters()">
+      </div>
+    </div>
+    <div class="core-hint">Signed year: negative = BC (−5000 = 5000 BC), positive = AD (500 = AD 500). Leave blank for no bound.</div>
+    <div class="filters-footer">
+      <button class="btn ghost" onclick="resetFilters()">Reset filters</button>
+      <span class="status-msg" style="margin:0;" id="filterSummary"></span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>3 · Results</h2>
+    <div class="table-scroll">
+      <table id="resultsTable">
+        <thead><tr id="tableHead"></tr></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+      <div class="empty-state" id="emptyState" style="display:none;">
+        <div class="big">No matching samples</div>
+        <div>Load a file above, or loosen the filters.</div>
+      </div>
+    </div>
+    <div class="table-footer">
+      <div class="page-controls">
+        <span>Rows per page</span>
+        <select id="pageSize" onchange="renderTable()">
+          <option>25</option><option selected>50</option><option>100</option><option>250</option><option value="all">All</option>
+        </select>
+        <span id="pageInfo"></span>
+        <button class="btn ghost" onclick="prevPage()">‹ Prev</button>
+        <button class="btn ghost" onclick="nextPage()">Next ›</button>
+      </div>
+      <div class="export-row">
+        <button class="btn" onclick="copyToClipboard()">Copy filtered → Clipboard</button>
+        <button class="btn primary" onclick="downloadCSV()">Download filtered CSV</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>4 · Population averages</h2>
+    <p class="core-hint" style="margin-bottom:14px;">Computes per-population mean coordinates, an overall dataset average, and an unweighted average of the population averages — a browser port of <em>g25_population_averages.R</em>.</p>
+    <div class="filters-grid" style="margin-bottom:14px;">
+      <div class="field">
+        <label>Compute from</label>
+        <select id="avgSource">
+          <option value="all">All loaded samples</option>
+          <option value="filtered">Currently filtered results</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Dataset label</label>
+        <input type="text" id="avgLabel" value="Ajeje's Ancients Average">
+      </div>
+      <div class="field">
+        <label>Rounding (decimals)</label>
+        <input type="number" id="avgRounding" value="6" min="0" max="12">
+      </div>
+      <div class="field">
+        <label>Top N populations to list</label>
+        <input type="number" id="avgTopN" value="15" min="1" max="500">
+      </div>
+    </div>
+    <div class="input-row">
+      <button class="btn primary" onclick="runAverages()">Compute averages</button>
+      <button class="btn ghost" onclick="clearAverages()">Clear results</button>
+    </div>
+    <div id="avgStatus" class="status-msg"></div>
+
+    <div id="avgResults" style="display:none; margin-top:18px;">
+
+      <h3 class="avg-subhead">Per-population averages <span class="n" id="avgPopCount"></span></h3>
+      <div class="export-row" style="margin-bottom:10px;">
+        <button class="btn" onclick="copyAverageCSV('pop')">Copy → Clipboard</button>
+        <button class="btn" onclick="downloadAverageCSV('pop')">Download CSV</button>
+      </div>
+      <div class="table-scroll" style="max-height:420px; overflow-y:auto;">
+        <table><thead><tr id="avgPopHead"></tr></thead><tbody id="avgPopBody"></tbody></table>
+      </div>
+
+      <h3 class="avg-subhead">Overall dataset average</h3>
+      <div class="export-row" style="margin-bottom:10px;">
+        <button class="btn" onclick="copyAverageCSV('dataset')">Copy → Clipboard</button>
+        <button class="btn" onclick="downloadAverageCSV('dataset')">Download CSV</button>
+      </div>
+      <div class="table-scroll"><table><thead><tr id="avgDatasetHead"></tr></thead><tbody id="avgDatasetBody"></tbody></table></div>
+
+      <h3 class="avg-subhead">Average of population averages <span class="core-hint" style="display:inline;">(each population weighted equally, regardless of its sample count)</span></h3>
+      <div class="export-row" style="margin-bottom:10px;">
+        <button class="btn" onclick="copyAverageCSV('popavg')">Copy → Clipboard</button>
+        <button class="btn" onclick="downloadAverageCSV('popavg')">Download CSV</button>
+      </div>
+      <div class="table-scroll"><table><thead><tr id="avgPopAvgHead"></tr></thead><tbody id="avgPopAvgBody"></tbody></table></div>
+
+      <h3 class="avg-subhead">Top <span id="avgTopNLabel"></span> populations by sample count</h3>
+      <div class="table-scroll">
+        <table id="avgTopTable" class="wide-two-col">
+          <thead><tr><th>Population</th><th>Samples (n)</th></tr></thead>
+          <tbody id="avgTopBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <footer class="credits">Parses the Name field convention <code>Population:Sample__PERIOD_Year__Cov_xx.xx%</code> — a browser port of the original Ajeje_Parse.R and g25_population_averages.R workflows by AimSmall. All processing happens locally in your browser; no data leaves your machine.</footer>
+</div>
+
+<script>
+/* ============================= CONFIG ============================= */
+const PC_COUNT = 25;
+
+// Archaeological era boundaries, evaluated on SIGNED year (negative = BC, positive = AD).
+// Each entry: era ends (is <=) at boundary. Ordered oldest -> newest.
+const ERA_DEFS = [
+  { name:'Paleolithic',            max:-10000, color:'#5c3a2e' },
+  { name:'Mesolithic',             max:-8000,  color:'#7a4a35' },
+  { name:'Neolithic',              max:-4500,  color:'#96603a' },
+  { name:'Chalcolithic',           max:-3300,  color:'#b17a3f' },
+  { name:'Bronze Age',             max:-1200,  color:'#c98a3b' },
+  { name:'Iron Age',               max:-550,   color:'#cf9c4e' },
+  { name:'Classical Antiquity',    max:500,    color:'#a8a churn' /*placeholder overwritten below*/, },
+  { name:'Early Medieval',         max:1000,   color:'#6f9184' },
+  { name:'Late Medieval',          max:1500,   color:'#4f8f8a' },
+  { name:'Post-Medieval / Modern', max:Infinity, color:'#3f7fa6' },
+];
+// fix the placeholder color cleanly
+ERA_DEFS[6].color = '#8f9a54';
+const UNKNOWN_ERA = { name:'Unknown / Undated', color:'#5a5147' };
+const ALL_ERAS = [...ERA_DEFS, UNKNOWN_ERA];
+
+function classifyEra(signedYear){
+  if (signedYear === null || isNaN(signedYear)) return UNKNOWN_ERA.name;
+  for (const era of ERA_DEFS){ if (signedYear <= era.max) return era.name; }
+  return UNKNOWN_ERA.name;
+}
+function eraColor(name){
+  const e = ALL_ERAS.find(e=>e.name===name);
+  return e ? e.color : '#5a5147';
+}
+
+const COLUMNS = [
+  {key:'Name', label:'Raw Name'},
+  {key:'Population', label:'Population'},
+  {key:'Sample', label:'Sample'},
+  {key:'AgePeriod', label:'Period'},
+  {key:'AgeYear', label:'Year', numeric:true},
+  {key:'SignedYear', label:'Signed Yr', numeric:true},
+  {key:'Era', label:'Era'},
+  {key:'CoveragePct', label:'Cov %', numeric:true},
+];
+for (let i=1;i<=PC_COUNT;i++) COLUMNS.push({key:'PC'+i, label:'PC'+i, numeric:true, pc:true});
+
+const EXPORT_COLUMNS = ['Name', ...Array.from({length:PC_COUNT},(_,i)=>'PC'+(i+1)),
+  'FullName','Population','Sample','Age','AgePeriod','AgeYear','SignedYear','Era','Coverage','CoveragePct'];
+
+/* ============================= STATE ============================= */
+let rows = [];        // all parsed rows
+let filtered = [];     // after filters
+let sortKey = 'SignedYear';
+let sortDir = 1;
+let currentPage = 1;
+let activeEras = new Set(); // empty = all
+
+/* ============================= PARSING ============================= */
+// Mirrors Ajeje_Parse.R logic exactly (str_split_i semantics).
+function parseLine(fields, issues){
+  const name = (fields[0] || '').trim();
+  if (!name) return null;
+  const pcs = [];
+  for (let i=1;i<=PC_COUNT;i++){
+    const raw = fields[i];
+    const v = parseFloat(raw);
+    if (isNaN(v)){
+      pcs.push(null);
+      if (issues) issues.push({name, pc:'PC'+i, raw:(raw===undefined?'(missing)':raw)});
+    } else {
+      pcs.push(v);
+    }
+  }
+  const parts = name.split('__');
+  const fullName = parts[0] || '';
+  const fnParts = fullName.split(':');
+  const population = fnParts[0] || '';
+  const sample = fnParts.length>1 ? fnParts[1] : '';
+  const age = parts.length>1 ? parts[1] : '';
+  const ageParts = age.split('_');
+  const agePeriod = ageParts[0] || '';
+  const ageYearRaw = ageParts.length>1 ? ageParts[1] : '';
+  const ageYear = ageYearRaw !== '' && !isNaN(Number(ageYearRaw)) ? Number(ageYearRaw) : null;
+  const coverage = parts.length>2 ? parts[2] : '';
+  let coveragePct = null;
+  const covMatch = coverage.match(/Cov_([\d.]+)\s*%/i);
+  if (covMatch) coveragePct = Number(covMatch[1]);
+
+  let signedYear = null;
+  if (ageYear !== null){
+    const p = agePeriod.toUpperCase();
+    if (p === 'BC') signedYear = -ageYear;
+    else if (p === 'AD') signedYear = ageYear;
+  }
+  const era = classifyEra(signedYear);
+
+  const row = {
+    Name:name, FullName:fullName, Population:population, Sample:sample,
+    Age:age, AgePeriod:agePeriod, AgeYear:ageYear, SignedYear:signedYear,
+    Coverage:coverage, CoveragePct:coveragePct, Era:era
+  };
+  pcs.forEach((v,i)=> row['PC'+(i+1)] = v);
+  return row;
+}
+
+// simple CSV line splitter (handles basic quoted fields, data has none but be safe)
+function splitCSVLine(line){
+  const out = []; let cur=''; let inQ=false;
+  for (let i=0;i<line.length;i++){
+    const c = line[i];
+    if (c === '"'){ inQ = !inQ; continue; }
+    if (c === ',' && !inQ){ out.push(cur); cur=''; continue; }
+    cur += c;
+  }
+  out.push(cur);
+  return out;
+}
+
+function looksLikeHeader(fields){
+  return fields[0] && fields[0].trim().toLowerCase() === 'name' && fields[1] && fields[1].trim().toUpperCase().startsWith('PC');
+}
+
+function parseRawText(text){
+  const lines = text.split(/\r\n|\n|\r/).map(l=>l.trim()).filter(l=>l.length>0);
+  if (lines.length === 0) return {parsed:[], skipped:0, issues:[]};
+  let start = 0;
+  const firstFields = splitCSVLine(lines[0]);
+  if (looksLikeHeader(firstFields)) start = 1;
+  const parsed = [];
+  const issues = [];
+  let skipped = 0;
+  for (let i=start;i<lines.length;i++){
+    const fields = splitCSVLine(lines[i]);
+    if (fields.length < PC_COUNT+1){ skipped++; continue; }
+    const row = parseLine(fields, issues);
+    if (row) parsed.push(row); else skipped++;
+  }
+  return {parsed, skipped, issues};
+}
+
+/* ============================= LOADING ============================= */
+const statusMsg = document.getElementById('statusMsg');
+
+document.getElementById('fileInput').addEventListener('change', function(e){
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    ingest(ev.target.result, file.name);
+  };
+  reader.onerror = function(){
+    setStatus('Could not read that file.', 'err');
+  };
+  reader.readAsText(file);
+});
+
+function toggleClipboardArea(){
+  const ta = document.getElementById('pasteArea');
+  const row = document.getElementById('pasteBtnRow');
+  const show = ta.style.display === 'none';
+  ta.style.display = show ? 'block' : 'none';
+  row.style.display = show ? 'flex' : 'none';
+}
+
+function parsePastedText(){
+  const text = document.getElementById('pasteArea').value;
+  if (!text.trim()){ setStatus('Paste box is empty.', 'err'); return; }
+  ingest(text, 'pasted text');
+}
+
+let parseIssues = [];
+
+function ingest(text, sourceLabel){
+  const {parsed, skipped, issues} = parseRawText(text);
+  if (parsed.length === 0){
+    setStatus('No valid rows found in ' + sourceLabel + '. Expected Name,PC1..PC25 with no header.', 'err');
+    return;
+  }
+  rows = parsed;
+  parseIssues = issues || [];
+  buildEraStrip();
+  populateEraDropdown();
+  resetFilters(true);
+  let msg = 'Loaded ' + parsed.length.toLocaleString() + ' samples from ' + sourceLabel + (skipped ? (' — ' + skipped + ' row(s) skipped (malformed).') : '.');
+  if (parseIssues.length){
+    msg += ' Data quality: ' + parseIssues.length.toLocaleString() + ' non-numeric PC cell(s) found (treated as blank in averages) — see console for the first 10.';
+    console.warn('Non-numeric PC cells:', parseIssues.slice(0,10));
+    setStatus(msg, 'err');
+  } else {
+    setStatus(msg, 'ok');
+  }
+}
+
+const DEMO_TEXT = `Denisova25:Denisova25__BC_198050__Cov_100.00%,-0.671556,0.053823,0.027153,0.072352,0.018465,-0.03514,0.260627,-0.195915,-0.034974,0.046652,0.008769,-0.060097,-0.001189,-0.000688,0.012758,-0.016309,0.014081,0.146452,-0.041983,-0.003001,-0.017344,0.000742,-0.000616,-0.006868,-0.013532
+Altai_Neanderthal.DG:AltaiNeanderthal.DG__BC_116050__Cov_99.92%,-0.663589,0.050776,0.032055,0.068153,0.015695,-0.023706,0.265327,-0.204684,-0.028429,0.056311,0.009743,-0.063394,-0.007433,0.000688,0.011401,-0.015513,0.014473,0.148732,-0.040978,-0.000875,-0.016346,0.001237,-0.001725,-0.00735,-0.010658
+Altai_Neanderthal.DG:AltaiNeanderthal_snpAD.DG__BC_116050__Cov_92.26%,-0.664727,0.051792,0.032055,0.067184,0.014772,-0.023985,0.264622,-0.203991,-0.028838,0.056129,0.009256,-0.061295,-0.006987,0.001514,0.010722,-0.015115,0.014212,0.148986,-0.041606,-0.001126,-0.017095,0.001237,-0.002342,-0.007832,-0.010298
+Denisova17:A26088__BC_108000__Cov_99.50%,-0.655621,0.049761,0.03017,0.069768,0.017234,-0.022869,0.258277,-0.201453,-0.029042,0.056129,0.008769,-0.062195,-0.006838,-0.001376,0.0095,-0.01538,0.01369,0.146832,-0.039469,-5e-04,-0.014599,0.000247,-0.000246,-0.00723,-0.010658
+DenisovaNeanderthalMix.SG:Denisova11.SG__BC_96750__Cov_74.15%,-0.667003,0.055854,0.03017,0.070414,0.018465,-0.025658,0.262037,-0.200992,-0.031292,0.049386,0.00747,-0.062644,-0.000743,0.002064,0.014794,-0.01432,0.014864,0.147719,-0.041229,0.001626,-0.019091,0.003833,0.001479,-0.003494,-0.016885
+Mezmaiskaya3_Neanderthal:Mez3__BC_94750__Cov_11.04%,-0.552042,0.053823,0.025267,0.052649,0.020004,-0.014502,0.196469,-0.169378,-0.026793,0.050662,0.014615,-0.066841,-0.0055,-0.000826,0.009908,-0.013259,0.014733,0.128209,-0.033436,0.003001,-0.009733,0.007296,-0.008997,-0.008796,0.003233
+Neanderthal:Mezmaiskaya1_final_provisional__BC_63050__Cov_56.66%,-0.631718,0.044683,0.030924,0.065246,0.015387,-0.016455,0.246526,-0.193146,-0.027815,0.050662,0.006658,-0.059347,-0.004311,0.004129,0.013708,-0.012861,0.008214,0.145565,-0.037081,0.007629,-0.012977,-0.000371,-0.006655,-0.003133,-0.008981
+Denisova.DG:Denisova3.DG__BC_61950__Cov_99.89%,-0.672695,0.052808,0.024513,0.071706,0.019388,-0.035419,0.261567,-0.19753,-0.031906,0.04647,0.010393,-0.063394,-0.001933,-0.001789,0.01045,-0.016043,0.015646,0.145185,-0.040852,-0.001626,-0.019091,0.000247,-0.00037,-0.002771,-0.015448
+Denisova.DG:Denisova3_snpAD.DG__BC_61950__Cov_92.24%,-0.674971,0.052808,0.024513,0.071706,0.018773,-0.03514,0.261332,-0.19753,-0.033133,0.046106,0.010555,-0.061595,-0.001933,-0.000826,0.010043,-0.01538,0.015646,0.145692,-0.042235,-0.002251,-0.019216,0.000866,0.000616,-0.003133,-0.015567
+Denisova_light.SG:Denisova_light.SG__BC_61950__Cov_49.90%,-0.682939,0.058901,0.032809,0.071706,0.026159,-0.039045,0.260157,-0.190146,-0.041927,0.045559,0.011205,-0.063094,0.004906,0.002064,0.011672,-0.014983,0.011343,0.104011,-0.021369,5e-04,-0.00549,0.003215,-0.005423,-0.004097,-0.022872
+Albania_BA_IA:I14688__BC_500__Cov_66.52%,0.012,0.034,-0.011,0.022,0.005,-0.003,0.041,-0.028,0.009,-0.014,0.002,0.006,-0.001,0.003,0.0,-0.002,0.001,0.004,-0.001,0.0,0.001,0.0,0.0,0.0,0.0
+England_Medieval:ENG_MED1__AD_1200__Cov_88.30%,0.045,-0.021,0.013,0.007,-0.002,0.001,0.019,-0.033,0.004,0.002,-0.001,0.003,0.0,0.001,0.0,-0.001,0.0,0.002,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+Iceland_Modern:ICE_MOD1__AD_1950__Cov_98.10%,0.051,-0.019,0.02,0.011,-0.004,0.002,0.022,-0.03,0.006,0.003,-0.002,0.004,0.0,0.001,0.0,-0.001,0.0,0.002,0.0,0.0,0.0,0.0,0.0,0.0,0.0`;
+
+function loadDemo(){
+  ingest(DEMO_TEXT, 'demo sample');
+}
+
+function setStatus(msg, cls){
+  statusMsg.textContent = msg;
+  statusMsg.className = 'status-msg' + (cls ? (' '+cls) : '');
+}
+
+function resetAll(){
+  rows = []; filtered = []; parseIssues = [];
+  document.getElementById('pasteArea').value = '';
+  document.getElementById('fileInput').value = '';
+  buildEraStrip(); populateEraDropdown();
+  resetFilters(true);
+  setStatus('Cleared. No data loaded.', '');
+}
+
+/* ============================= ERA STRIP ============================= */
+function buildEraStrip(){
+  const strip = document.getElementById('coreStrip');
+  strip.innerHTML = '';
+  const counts = {};
+  ALL_ERAS.forEach(e=>counts[e.name]=0);
+  rows.forEach(r=>counts[r.Era] = (counts[r.Era]||0)+1);
+
+  ALL_ERAS.forEach(era=>{
+    const div = document.createElement('div');
+    div.className = 'stratum';
+    div.style.background = era.color;
+    div.style.flexGrow = Math.max(counts[era.name], rows.length ? 0.2 : 1);
+    div.title = era.name + ': ' + counts[era.name] + ' samples';
+    div.dataset.era = era.name;
+    div.innerHTML = '<span>' + era.name + (rows.length ? (' (' + counts[era.name] + ')') : '') + '</span>';
+    div.onclick = ()=> toggleEra(era.name);
+    strip.appendChild(div);
+  });
+  refreshStripHighlight();
+}
+
+function refreshStripHighlight(){
+  document.querySelectorAll('.stratum').forEach(el=>{
+    const name = el.dataset.era;
+    if (activeEras.size === 0){
+      el.classList.remove('active','dimmed');
+    } else if (activeEras.has(name)){
+      el.classList.add('active'); el.classList.remove('dimmed');
+    } else {
+      el.classList.add('dimmed'); el.classList.remove('active');
+    }
+  });
+  document.getElementById('eraClearHint').style.display = activeEras.size ? 'inline' : 'none';
+}
+
+function toggleEra(name){
+  if (activeEras.has(name)) activeEras.delete(name); else activeEras.add(name);
+  document.getElementById('fEra').value = activeEras.size === 1 ? [...activeEras][0] : '';
+  refreshStripHighlight();
+  applyFilters();
+}
+function clearEraFilter(){
+  activeEras.clear();
+  document.getElementById('fEra').value = '';
+  refreshStripHighlight();
+  applyFilters();
+}
+function populateEraDropdown(){
+  const sel = document.getElementById('fEra');
+  sel.innerHTML = '<option value="">All eras</option>';
+  ALL_ERAS.forEach(e=>{
+    const opt = document.createElement('option');
+    opt.value = e.name; opt.textContent = e.name;
+    sel.appendChild(opt);
+  });
+}
+function onEraDropdown(){
+  const val = document.getElementById('fEra').value;
+  activeEras = val ? new Set([val]) : new Set();
+  refreshStripHighlight();
+  applyFilters();
+}
+
+/* ============================= FILTERING ============================= */
+function applyFilters(){
+  const search = document.getElementById('fSearch').value.trim().toLowerCase();
+  const period = document.getElementById('fPeriod').value;
+  const covMin = parseFloat(document.getElementById('fCovMin').value);
+  const yFrom = document.getElementById('fYearFrom').value;
+  const yTo = document.getElementById('fYearTo').value;
+  const yFromN = yFrom !== '' ? Number(yFrom) : null;
+  const yToN = yTo !== '' ? Number(yTo) : null;
+
+  filtered = rows.filter(r=>{
+    if (search){
+      const hay = (r.Population + ' ' + r.Sample + ' ' + r.Name).toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    if (period && r.AgePeriod.toUpperCase() !== period) return false;
+    if (!isNaN(covMin) && (r.CoveragePct === null || r.CoveragePct < covMin)) return false;
+    if (activeEras.size && !activeEras.has(r.Era)) return false;
+    if (yFromN !== null){
+      if (r.SignedYear === null || r.SignedYear < yFromN) return false;
+    }
+    if (yToN !== null){
+      if (r.SignedYear === null || r.SignedYear > yToN) return false;
+    }
+    return true;
+  });
+
+  currentPage = 1;
+  sortRows();
+  renderStats();
+  buildEraStrip(); // refresh counts to reflect full load, highlight stays via activeEras
+  renderTable();
+}
+
+function resetFilters(silent){
+  document.getElementById('fSearch').value = '';
+  document.getElementById('fEra').value = '';
+  document.getElementById('fPeriod').value = '';
+  document.getElementById('fCovMin').value = '';
+  document.getElementById('fYearFrom').value = '';
+  document.getElementById('fYearTo').value = '';
+  activeEras.clear();
+  refreshStripHighlight();
+  if (!silent) applyFilters(); else { filtered = rows.slice(); sortRows(); renderStats(); renderTable(); }
+}
+
+/* ============================= SORT / RENDER ============================= */
+function sortRows(){
+  filtered.sort((a,b)=>{
+    let av = a[sortKey], bv = b[sortKey];
+    if (av === null || av === undefined) av = sortDir===1 ? Infinity : -Infinity;
+    if (bv === null || bv === undefined) bv = sortDir===1 ? Infinity : -Infinity;
+    if (typeof av === 'string') av = av.toLowerCase();
+    if (typeof bv === 'string') bv = bv.toLowerCase();
+    if (av < bv) return -1*sortDir;
+    if (av > bv) return 1*sortDir;
+    return 0;
+  });
+}
+
+function renderStats(){
+  document.getElementById('statTotal').textContent = rows.length.toLocaleString();
+  document.getElementById('statFiltered').textContent = filtered.length.toLocaleString();
+  document.getElementById('statDated').textContent = rows.filter(r=>r.SignedYear!==null).length.toLocaleString();
+  document.getElementById('filterCount').textContent = filtered.length ? ('(' + filtered.length.toLocaleString() + ' match)') : '';
+  document.getElementById('filterSummary').textContent = activeEras.size ? ('Era filter: ' + [...activeEras].join(', ')) : '';
+}
+
+function buildHead(){
+  const tr = document.getElementById('tableHead');
+  tr.innerHTML = '';
+  COLUMNS.forEach(col=>{
+    const th = document.createElement('th');
+    th.textContent = col.label;
+    if (sortKey === col.key){
+      const arrow = document.createElement('span');
+      arrow.className = 'arrow';
+      arrow.textContent = sortDir===1 ? '▲' : '▼';
+      th.appendChild(arrow);
+    }
+    th.onclick = ()=>{
+      if (sortKey === col.key) sortDir *= -1; else { sortKey = col.key; sortDir = 1; }
+      sortRows(); currentPage=1; renderTable();
+    };
+    tr.appendChild(th);
+  });
+}
+
+function renderTable(){
+  buildHead();
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = '';
+  const empty = document.getElementById('emptyState');
+
+  if (filtered.length === 0){
+    empty.style.display = 'block';
+    document.getElementById('pageInfo').textContent = '';
+    tbody.parentElement.style.display = rows.length ? 'none' : 'table';
+    return;
+  }
+  empty.style.display = 'none';
+  tbody.parentElement.style.display = 'table';
+
+  const pageSizeSel = document.getElementById('pageSize').value;
+  const pageSize = pageSizeSel === 'all' ? filtered.length : parseInt(pageSizeSel,10);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  if (currentPage > totalPages) currentPage = totalPages;
+  const startIdx = (currentPage-1)*pageSize;
+  const pageRows = filtered.slice(startIdx, startIdx+pageSize);
+
+  const frag = document.createDocumentFragment();
+  pageRows.forEach(r=>{
+    const tr = document.createElement('tr');
+    COLUMNS.forEach(col=>{
+      const td = document.createElement('td');
+      if (col.key === 'Era'){
+        const pill = document.createElement('span');
+        pill.className = 'era-pill';
+        pill.style.background = eraColor(r.Era);
+        pill.textContent = r.Era;
+        td.appendChild(pill);
+      } else {
+        let val = r[col.key];
+        if (val === null || val === undefined || val === '') val = '—';
+        else if (col.pc && typeof val === 'number') val = val.toFixed(4);
+        td.textContent = val;
+        if (col.pc) td.className = 'pc-cell';
+      }
+      tr.appendChild(td);
+    });
+    frag.appendChild(tr);
+  });
+  tbody.appendChild(frag);
+
+  document.getElementById('pageInfo').textContent =
+    'Page ' + currentPage + ' / ' + totalPages + ' — showing ' + pageRows.length.toLocaleString() + ' of ' + filtered.length.toLocaleString();
+}
+
+function prevPage(){ if (currentPage>1){ currentPage--; renderTable(); } }
+function nextPage(){
+  const pageSizeSel = document.getElementById('pageSize').value;
+  const pageSize = pageSizeSel === 'all' ? filtered.length : parseInt(pageSizeSel,10);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  if (currentPage < totalPages){ currentPage++; renderTable(); }
+}
+
+/* ============================= EXPORT ============================= */
+function toCSV(){
+  const lines = [EXPORT_COLUMNS.join(',')];
+  filtered.forEach(r=>{
+    const line = EXPORT_COLUMNS.map(c=>{
+      let v = r[c];
+      if (v === null || v === undefined) v = '';
+      v = String(v);
+      if (v.includes(',') || v.includes('"')){
+        v = '"' + v.replace(/"/g,'""') + '"';
+      }
+      return v;
+    }).join(',');
+    lines.push(line);
+  });
+  return lines.join('\n');
+}
+
+function copyToClipboard(){
+  if (!filtered.length){ setStatus('Nothing to copy — filtered set is empty.', 'err'); return; }
+  const csv = toCSV();
+  navigator.clipboard.writeText(csv).then(()=>{
+    setStatus('Copied ' + filtered.length.toLocaleString() + ' filtered rows to clipboard (CSV).', 'ok');
+  }).catch(()=>{
+    setStatus('Clipboard copy failed — your browser may need a permission grant.', 'err');
+  });
+}
+
+function downloadCSV(){
+  if (!filtered.length){ setStatus('Nothing to export — filtered set is empty.', 'err'); return; }
+  const csv = toCSV();
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = 'global25_filtered_' + stamp + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  setStatus('Downloaded ' + filtered.length.toLocaleString() + ' filtered rows as CSV.', 'ok');
+}
+
+/* ============================= POPULATION AVERAGES ============================= */
+let avgData = null; // {popRows, dsMeans, paMeans, popCountsSorted, totalN, rounding}
+
+function computeAverages(sourceRows, rounding, datasetLabel){
+  const groups = new Map();
+  sourceRows.forEach(r=>{
+    const key = r.Population || '(blank)';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(r);
+  });
+
+  const popRows = [];
+  groups.forEach((list, pop)=>{
+    const sums = new Array(PC_COUNT).fill(0);
+    const counts = new Array(PC_COUNT).fill(0);
+    list.forEach(r=>{
+      for (let i=1;i<=PC_COUNT;i++){
+        const v = r['PC'+i];
+        if (v !== null && !isNaN(v)){ sums[i-1]+=v; counts[i-1]++; }
+      }
+    });
+    const means = sums.map((s,i)=> counts[i] ? Number((s/counts[i]).toFixed(rounding)) : null);
+    popRows.push({population:pop, n:list.length, means});
+  });
+  popRows.sort((a,b)=> a.population.localeCompare(b.population));
+
+  // overall dataset average (from raw sample-level rows)
+  const dsSums = new Array(PC_COUNT).fill(0);
+  const dsCounts = new Array(PC_COUNT).fill(0);
+  sourceRows.forEach(r=>{
+    for (let i=1;i<=PC_COUNT;i++){
+      const v = r['PC'+i];
+      if (v !== null && !isNaN(v)){ dsSums[i-1]+=v; dsCounts[i-1]++; }
+    }
+  });
+  const dsMeans = dsSums.map((s,i)=> dsCounts[i] ? Number((s/dsCounts[i]).toFixed(rounding)) : null);
+
+  // average of the (already-rounded) population averages, each population weighted equally
+  const paSums = new Array(PC_COUNT).fill(0);
+  const paCounts = new Array(PC_COUNT).fill(0);
+  popRows.forEach(p=>{
+    p.means.forEach((v,i)=>{ if (v !== null){ paSums[i]+=v; paCounts[i]++; } });
+  });
+  const paMeans = paSums.map((s,i)=> paCounts[i] ? Number((s/paCounts[i]).toFixed(rounding)) : null);
+
+  const popCountsSorted = popRows.slice().sort((a,b)=> b.n - a.n || a.population.localeCompare(b.population));
+
+  return {
+    popRows, dsMeans, paMeans, popCountsSorted,
+    totalN: sourceRows.length, rounding, datasetLabel
+  };
+}
+
+function runAverages(){
+  if (!rows.length){ document.getElementById('avgStatus').textContent = 'Load a collection first.'; document.getElementById('avgStatus').className='status-msg err'; return; }
+  const useFiltered = document.getElementById('avgSource').value === 'filtered';
+  const source = useFiltered ? filtered : rows;
+  if (!source.length){ document.getElementById('avgStatus').textContent = 'The selected source has no rows (check your filters).'; document.getElementById('avgStatus').className='status-msg err'; return; }
+  const rounding = Math.max(0, Math.min(12, parseInt(document.getElementById('avgRounding').value,10) || 0));
+  const label = document.getElementById('avgLabel').value.trim() || "Ajeje's Ancients Average";
+  avgData = computeAverages(source, rounding, label);
+  avgData.eraTag = (useFiltered && activeEras.size)
+    ? [...activeEras].map(e=>e.replace(/[^a-zA-Z0-9]+/g,'')).join('-')
+    : null;
+  const eraNote = (useFiltered && activeEras.size) ? (' [era filter: ' + [...activeEras].join(', ') + ']') : '';
+  renderAverages();
+  document.getElementById('avgResults').style.display = 'block';
+  document.getElementById('avgStatus').textContent = 'Computed averages for ' + avgData.totalN.toLocaleString() + ' samples across ' + avgData.popRows.length.toLocaleString() + ' populations (' + (useFiltered ? 'currently filtered results' : 'all loaded samples') + ')' + eraNote + '.';
+  document.getElementById('avgStatus').className = 'status-msg ok';
+}
+
+function clearAverages(){
+  avgData = null;
+  document.getElementById('avgResults').style.display = 'none';
+  document.getElementById('avgStatus').textContent = '';
+  document.getElementById('avgStatus').className = 'status-msg';
+}
+
+function pcHeaderRow(rowEl){
+  rowEl.innerHTML = '<th>Label</th>' + Array.from({length:PC_COUNT},(_,i)=>'<th>PC'+(i+1)+'</th>').join('');
+}
+
+function renderAverages(){
+  if (!avgData) return;
+
+  // per-population table
+  pcHeaderRow(document.getElementById('avgPopHead'));
+  document.getElementById('avgPopCount').textContent = '(' + avgData.popRows.length.toLocaleString() + ' populations)';
+  const popBody = document.getElementById('avgPopBody');
+  popBody.innerHTML = '';
+  const popFrag = document.createDocumentFragment();
+  avgData.popRows.forEach(p=>{
+    const tr = document.createElement('tr');
+    const label = p.population + '_average(n=' + p.n + ')';
+    tr.innerHTML = '<td>' + escapeHtml(label) + '</td>' + p.means.map(v=>'<td class="pc-cell">'+(v===null?'—':v)+'</td>').join('');
+    popFrag.appendChild(tr);
+  });
+  popBody.appendChild(popFrag);
+
+  // dataset average table
+  pcHeaderRow(document.getElementById('avgDatasetHead'));
+  const dsLabel = avgData.datasetLabel + ' (n=' + avgData.totalN + ')';
+  document.getElementById('avgDatasetBody').innerHTML =
+    '<tr><td>' + escapeHtml(dsLabel) + '</td>' + avgData.dsMeans.map(v=>'<td class="pc-cell">'+(v===null?'—':v)+'</td>').join('') + '</tr>';
+
+  // population-of-averages table
+  pcHeaderRow(document.getElementById('avgPopAvgHead'));
+  const paLabel = avgData.datasetLabel + ' Population Averages (n=' + avgData.popRows.length + ')';
+  document.getElementById('avgPopAvgBody').innerHTML =
+    '<tr><td>' + escapeHtml(paLabel) + '</td>' + avgData.paMeans.map(v=>'<td class="pc-cell">'+(v===null?'—':v)+'</td>').join('') + '</tr>';
+
+  // top N populations
+  const topN = Math.max(1, parseInt(document.getElementById('avgTopN').value,10) || 15);
+  document.getElementById('avgTopNLabel').textContent = topN;
+  const topBody = document.getElementById('avgTopBody');
+  topBody.innerHTML = '';
+  const topFrag = document.createDocumentFragment();
+  avgData.popCountsSorted.slice(0, topN).forEach(p=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + escapeHtml(p.population) + '</td><td class="pc-cell">' + p.n + '</td>';
+    topFrag.appendChild(tr);
+  });
+  topBody.appendChild(topFrag);
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+function csvLine(cells){
+  return cells.map(v=>{
+    if (v === null || v === undefined) return '';
+    v = String(v);
+    if (v.includes(',') || v.includes('"')) v = '"' + v.replace(/"/g,'""') + '"';
+    return v;
+  }).join(',');
+}
+
+function averagesToCSV(kind){
+  if (!avgData) return '';
+  const lines = [];
+  if (kind === 'pop'){
+    avgData.popRows.forEach(p=>{
+      const label = p.population + '_average(n=' + p.n + ')';
+      lines.push(csvLine([label, ...p.means]));
+    });
+  } else if (kind === 'dataset'){
+    const dsLabel = avgData.datasetLabel + ' (n=' + avgData.totalN + ')';
+    lines.push(csvLine([dsLabel, ...avgData.dsMeans]));
+  } else if (kind === 'popavg'){
+    const paLabel = avgData.datasetLabel + ' Population Averages (n=' + avgData.popRows.length + ')';
+    lines.push(csvLine([paLabel, ...avgData.paMeans]));
+  }
+  return lines.join('\n');
+}
+
+const AVG_FILE_SUFFIX = { pop:'averages', dataset:'dataset_average', popavg:'population_average' };
+
+function copyAverageCSV(kind){
+  const csv = averagesToCSV(kind);
+  if (!csv){ return; }
+  navigator.clipboard.writeText(csv).then(()=>{
+    document.getElementById('avgStatus').textContent = 'Copied "' + AVG_FILE_SUFFIX[kind] + '" output to clipboard.';
+    document.getElementById('avgStatus').className = 'status-msg ok';
+  }).catch(()=>{
+    document.getElementById('avgStatus').textContent = 'Clipboard copy failed — your browser may need a permission grant.';
+    document.getElementById('avgStatus').className = 'status-msg err';
+  });
+}
+
+function downloadAverageCSV(kind){
+  const csv = averagesToCSV(kind);
+  if (!csv){ return; }
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0,10);
+  const eraPart = (avgData && avgData.eraTag) ? (avgData.eraTag + '_') : '';
+  a.href = url;
+  a.download = 'ajeje_ancients_' + eraPart + AVG_FILE_SUFFIX[kind] + '_' + stamp + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* ============================= INIT ============================= */
+buildEraStrip();
+populateEraDropdown();
+renderStats();
+renderTable();
+</script>
+</body>
+</html>
