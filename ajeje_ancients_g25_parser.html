@@ -431,8 +431,7 @@ const COLUMNS = [
 ];
 for (let i=1;i<=PC_COUNT;i++) COLUMNS.push({key:'PC'+i, label:'PC'+i, numeric:true, pc:true});
 
-const EXPORT_COLUMNS = ['Name', ...Array.from({length:PC_COUNT},(_,i)=>'PC'+(i+1)),
-  'FullName','Population','Sample','Age','AgePeriod','AgeYear','SignedYear','Era','Coverage','CoveragePct'];
+const EXPORT_COLUMNS = ['Name', ...Array.from({length:PC_COUNT},(_,i)=>'PC'+(i+1))];
 
 /* ============================= STATE ============================= */
 let rows = [];        // all parsed rows
@@ -822,7 +821,7 @@ function nextPage(){
 
 /* ============================= EXPORT ============================= */
 function toCSV(){
-  const lines = [EXPORT_COLUMNS.join(',')];
+  const lines = [];
   filtered.forEach(r=>{
     const line = EXPORT_COLUMNS.map(c=>{
       let v = r[c];
