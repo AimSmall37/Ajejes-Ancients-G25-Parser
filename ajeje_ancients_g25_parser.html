@@ -99,6 +99,37 @@ header p.sub{color:var(--bone-dim); margin-top:6px; font-size:13.5px; max-width:
 .stratum.dimmed{opacity:.28;}
 .core-hint{font-size:11.5px; color:var(--bone-dim); margin-top:6px;}
 
+/* ---------- Timeline (true-to-scale, below the sample-count strip) ---------- */
+.timeline-wrap{margin-top:16px;}
+.timeline-label-row{
+  display:flex; justify-content:space-between; align-items:center;
+  font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--bone-dim);
+  text-transform:uppercase; letter-spacing:.1em; margin-bottom:6px;
+}
+.timeline-bar{
+  display:flex; width:100%; height:16px; border-radius:2px; overflow:hidden;
+  border:1px solid var(--line);
+}
+.timeline-seg{
+  height:100%; cursor:pointer; transition:filter .15s ease, opacity .15s ease;
+  border-right:1px solid rgba(0,0,0,.3);
+}
+.timeline-seg:last-child{border-right:none;}
+.timeline-seg:hover{filter:brightness(1.18);}
+.timeline-seg.dimmed{opacity:.28;}
+.timeline-seg.active{box-shadow:inset 0 0 0 2px var(--bone);}
+.timeline-ticks{position:relative; height:28px; margin-top:2px;}
+.timeline-tick{
+  position:absolute; top:0; transform:translateX(-50%);
+  display:flex; flex-direction:column; align-items:center;
+  font-family:'IBM Plex Mono', monospace; font-size:9.5px; color:var(--bone-dim);
+  white-space:nowrap;
+}
+.timeline-tick .mark{width:1px; height:5px; background:var(--line); margin-bottom:3px;}
+.timeline-tick:first-child{transform:translateX(0); align-items:flex-start;}
+.timeline-tick:last-child{transform:translateX(-100%); align-items:flex-end;}
+.timeline-scale-note{font-size:10.5px; color:var(--bone-dim); margin-top:2px; font-style:italic;}
+
 /* ---------- Panels ---------- */
 .panel{
   background:var(--soil-1); border:1px solid var(--line); border-radius:var(--radius);
@@ -229,6 +260,16 @@ footer.credits{margin-top:30px; color:var(--bone-dim); font-size:11.5px; text-al
     </div>
     <div class="core-strip" id="coreStrip"></div>
     <div class="core-hint">Layers are ordered oldest (left) → most recent (right), sized by number of matching samples currently loaded.</div>
+
+    <div class="timeline-wrap">
+      <div class="timeline-label-row">
+        <span>Timeline — true to scale (log), click a band to filter</span>
+      </div>
+      <div class="timeline-bar" id="timelineBar"></div>
+      <div class="timeline-ticks" id="timelineTicks"></div>
+      <div class="timeline-scale-note">Width reflects elapsed time, not sample count — a logarithmic scale, since the Paleolithic alone can span longer than every other era combined.</div>
+    </div>
+
     <div class="input-row" style="margin-top:12px;">
       <button class="btn" onclick="downloadAllEras()">Download each era as a zip (files + summary)</button>
     </div>
@@ -404,13 +445,11 @@ const ERA_DEFS = [
   { name:'Chalcolithic',           max:-3300,  color:'#b17a3f' },
   { name:'Bronze Age',             max:-1200,  color:'#c98a3b' },
   { name:'Iron Age',               max:-550,   color:'#cf9c4e' },
-  { name:'Classical Antiquity',    max:500,    color:'#a8a churn' /*placeholder overwritten below*/, },
+  { name:'Classical Antiquity',    max:500,    color:'#8f9a54' },
   { name:'Early Medieval',         max:1000,   color:'#6f9184' },
   { name:'Late Medieval',          max:1500,   color:'#4f8f8a' },
   { name:'Post-Medieval / Modern', max:Infinity, color:'#3f7fa6' },
 ];
-// fix the placeholder color cleanly
-ERA_DEFS[6].color = '#8f9a54';
 const UNKNOWN_ERA = { name:'Unknown / Undated', color:'#5a5147' };
 const ALL_ERAS = [...ERA_DEFS, UNKNOWN_ERA];
 
@@ -576,6 +615,7 @@ function ingest(text, sourceLabel){
   rows = parsed;
   parseIssues = issues || [];
   buildEraStrip();
+  buildTimeline();
   populateEraDropdown();
   resetFilters(true);
   let msg = 'Loaded ' + parsed.length.toLocaleString() + ' samples from ' + sourceLabel + (skipped ? (' — ' + skipped + ' row(s) skipped (malformed).') : '.');
@@ -617,7 +657,7 @@ function resetAll(){
   sourceFileName = null; sourceFileBase = null;
   document.getElementById('pasteArea').value = '';
   document.getElementById('fileInput').value = '';
-  buildEraStrip(); populateEraDropdown();
+  buildEraStrip(); buildTimeline(); populateEraDropdown();
   resetFilters(true);
   setStatus('Cleared. No data loaded.', '');
 }
@@ -644,8 +684,86 @@ function buildEraStrip(){
   refreshStripHighlight();
 }
 
+/* ============================= TIMELINE (true-to-scale) ============================= */
+function fmtSignedYearShort(y){
+  if (y === null || !isFinite(y)) return '';
+  const abs = Math.abs(Math.round(y));
+  const s = abs.toLocaleString();
+  return y < 0 ? (s + ' BC') : (y === 0 ? '0' : ('AD ' + s));
+}
+
+function buildTimeline(){
+  const bar = document.getElementById('timelineBar');
+  const ticksEl = document.getElementById('timelineTicks');
+  if (!bar || !ticksEl) return;
+
+  const CURRENT_YEAR = new Date().getFullYear();
+  const datedYears = rows.map(r=>r.SignedYear).filter(y=>y!==null);
+  // Left edge of the timeline: the oldest sample actually loaded, or a sensible default
+  // so the scale still looks reasonable before any file is loaded.
+  const oldestLoaded = datedYears.length ? Math.min(...datedYears) : -20000;
+  const domainStart = Math.min(oldestLoaded, -10001);
+  const domainEnd = CURRENT_YEAR;
+
+  // A small offset keeps the log scale from blowing up as yearsAgo approaches zero —
+  // without it, the last few centuries alone would claim about half the bar's width.
+  const LOG_OFFSET = 100;
+  const yearsAgo = y => Math.max(CURRENT_YEAR - y, 0);
+  const Lmax = Math.log10(yearsAgo(domainStart) + LOG_OFFSET);
+  const Lmin = Math.log10(yearsAgo(domainEnd) + LOG_OFFSET);
+  function pos(y){
+    const L = Math.log10(yearsAgo(y) + LOG_OFFSET);
+    return (Lmax - L) / (Lmax - Lmin); // 0 at domainStart (oldest), 1 at domainEnd (now)
+  }
+
+  // Boundaries line up 1:1 with ERA_DEFS: [domainStart, era1.max, era2.max, ..., domainEnd]
+  const boundaries = [domainStart, ...ERA_DEFS.slice(0, -1).map(e=>e.max), domainEnd];
+
+  bar.innerHTML = '';
+  ERA_DEFS.forEach((era, i)=>{
+    const p0 = pos(boundaries[i]);
+    const p1 = pos(boundaries[i+1]);
+    const seg = document.createElement('div');
+    seg.className = 'timeline-seg';
+    seg.style.background = era.color;
+    seg.style.width = Math.max((p1 - p0) * 100, 0) + '%';
+    seg.dataset.era = era.name;
+    const startLabel = i === 0 ? (datedYears.length ? ('~' + fmtSignedYearShort(oldestLoaded)) : 'deep past') : fmtSignedYearShort(boundaries[i]);
+    seg.title = era.name + ': ' + startLabel + ' – ' + fmtSignedYearShort(boundaries[i+1] === domainEnd ? domainEnd : boundaries[i+1]);
+    seg.onclick = ()=> toggleEra(era.name);
+    bar.appendChild(seg);
+  });
+
+  // Tick labels: the real era boundaries, plus the oldest loaded sample and "Now" at the ends.
+  const ticks = [
+    { y: domainStart, label: datedYears.length ? ('~' + fmtSignedYearShort(oldestLoaded)) : 'Deep past' },
+    ...ERA_DEFS.slice(0, -1).map(e => ({ y: e.max, label: fmtSignedYearShort(e.max) })),
+    { y: domainEnd, label: 'Now' }
+  ];
+  ticksEl.innerHTML = '';
+  ticks.forEach(t=>{
+    const div = document.createElement('div');
+    div.className = 'timeline-tick';
+    div.style.left = (pos(t.y) * 100) + '%';
+    div.innerHTML = '<span class="mark"></span><span>' + t.label + '</span>';
+    ticksEl.appendChild(div);
+  });
+
+  refreshStripHighlight();
+}
+
 function refreshStripHighlight(){
   document.querySelectorAll('.stratum').forEach(el=>{
+    const name = el.dataset.era;
+    if (activeEras.size === 0){
+      el.classList.remove('active','dimmed');
+    } else if (activeEras.has(name)){
+      el.classList.add('active'); el.classList.remove('dimmed');
+    } else {
+      el.classList.add('dimmed'); el.classList.remove('active');
+    }
+  });
+  document.querySelectorAll('.timeline-seg').forEach(el=>{
     const name = el.dataset.era;
     if (activeEras.size === 0){
       el.classList.remove('active','dimmed');
@@ -905,7 +1023,7 @@ function buildSummaryText(erasWithData){
   lines.push('Dated samples: ' + datedCount.toLocaleString() + '  |  Undated / modern samples: ' + (rows.length - datedCount).toLocaleString());
   if (years.length) lines.push('Date range: ' + fmtYear(oldest) + '  to  ' + fmtYear(newest));
   lines.push('');
-  lines.push('SAMPLES BY ERA (oldest \u2192 most recent)');
+  lines.push('SAMPLES BY ERA (oldest → most recent)');
   lines.push('-'.repeat(46));
   ALL_ERAS.forEach(e=>{
     const c = rows.filter(r=>r.Era===e.name).length;
@@ -1141,6 +1259,7 @@ function downloadAverageCSV(kind){
 
 /* ============================= INIT ============================= */
 buildEraStrip();
+buildTimeline();
 populateEraDropdown();
 renderStats();
 renderTable();
