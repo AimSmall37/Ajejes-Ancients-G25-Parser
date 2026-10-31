@@ -981,13 +981,38 @@ function triggerDownload(content, filename, mime){
   URL.revokeObjectURL(url);
 }
 
+// Robust copy: tries the async Clipboard API, falls back to a hidden textarea + execCommand
+// (works on file://, inside iframes, and non-HTTPS pages where navigator.clipboard is blocked/undefined).
+function copyText(text){
+  function legacyCopy(){
+    return new Promise((resolve, reject)=>{
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly','');
+      ta.style.cssText = 'position:fixed; top:0; left:0; width:1px; height:1px; opacity:0; pointer-events:none;';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      ta.setSelectionRange(0, ta.value.length);
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch(e){ ok = false; }
+      document.body.removeChild(ta);
+      ok ? resolve() : reject(new Error('execCommand copy failed'));
+    });
+  }
+  if (navigator.clipboard && window.isSecureContext){
+    return navigator.clipboard.writeText(text).catch(()=> legacyCopy());
+  }
+  return legacyCopy();
+}
+
 function copyToClipboard(){
   if (!filtered.length){ setStatus('Nothing to copy — filtered set is empty.', 'err'); return; }
   const csv = toCSV(filtered);
-  navigator.clipboard.writeText(csv).then(()=>{
+  copyText(csv).then(()=>{
     setStatus('Copied ' + filtered.length.toLocaleString() + ' filtered rows to clipboard (CSV).', 'ok');
   }).catch(()=>{
-    setStatus('Clipboard copy failed — your browser may need a permission grant.', 'err');
+    setStatus('Clipboard copy failed — use "Download filtered CSV" instead, or try opening this page over http(s).', 'err');
   });
 }
 
@@ -1239,11 +1264,11 @@ const AVG_FILE_SUFFIX = { pop:'averages', dataset:'dataset_average', popavg:'pop
 function copyAverageCSV(kind){
   const csv = averagesToCSV(kind);
   if (!csv){ return; }
-  navigator.clipboard.writeText(csv).then(()=>{
+  copyText(csv).then(()=>{
     document.getElementById('avgStatus').textContent = 'Copied "' + AVG_FILE_SUFFIX[kind] + '" output to clipboard.';
     document.getElementById('avgStatus').className = 'status-msg ok';
   }).catch(()=>{
-    document.getElementById('avgStatus').textContent = 'Clipboard copy failed — your browser may need a permission grant.';
+    document.getElementById('avgStatus').textContent = 'Clipboard copy failed — use the Download CSV button instead.';
     document.getElementById('avgStatus').className = 'status-msg err';
   });
 }
